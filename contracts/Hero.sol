@@ -6,13 +6,13 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./Mintable.sol";
-import "./utils/String.sol";
 
 contract Hero is ERC721, Mintable, IERC2981 {
     address public bank;
 
     // type of item give position too
     mapping(uint256 => uint16) nftType;
+    mapping(uint16 => uint16) nftTypeByPosition;
     mapping(uint256 => uint256[]) nftItems;
 
     constructor(
@@ -29,13 +29,24 @@ contract Hero is ERC721, Mintable, IERC2981 {
         _;
     }
 
+    function setPosition(uint16 pos, uint16 typeNft) public onlyOwner {
+        require(pos > 0, "Position needs to be more than 0");
+        nftTypeByPosition[pos] = typeNft;
+    }
+
     function _mintFor(
         address user,
         uint256 id,
-        bytes memory
+        bytes memory datas
     ) internal override {
         _safeMint(user, id);
-        
+        (uint16 typeNft, uint256[] memory childs) = abi.decode(
+            datas,
+            (uint16, uint256[])
+        );
+        nftType[id] = typeNft;
+        // how handle nft child ?
+        nftItems[id] = childs;
     }
 
     function royaltyInfo(
@@ -65,38 +76,44 @@ contract Hero is ERC721, Mintable, IERC2981 {
         nftItems[tokenId][itemPos] = 0;
     }
 
-    function putItem(uint256 tokenId, uint256 itemTokenId)
-        public
-        onlyOwnerOf(tokenId)
-    {
-         require(
-                ownerOf(itemTokenId) == _msgSender(),
-                "Not owner of item"
-            );
-        _addItem(tokenId, itemTokenId);
+    function putItem(
+        uint256 tokenId,
+        uint256 itemTokenId,
+        uint16 pos
+    ) public onlyOwnerOf(tokenId) {
+        require(ownerOf(itemTokenId) == _msgSender(), "Not owner of item");
+        _addItem(tokenId, itemTokenId, pos);
     }
 
-    function putMultipleItems(uint256 tokenId, uint256[] calldata itemTokenIds)
-        public
-        onlyOwnerOf(tokenId)
-    {
+    function putMultipleItems(
+        uint256 tokenId,
+        uint256[] calldata itemTokenIds,
+        uint16[] calldata positions
+    ) public onlyOwnerOf(tokenId) {
         for (uint256 i = 0; i < itemTokenIds.length; i++) {
             require(
                 ownerOf(itemTokenIds[i]) == _msgSender(),
                 "Not owner of item"
             );
-            _addItem(tokenId, itemTokenIds[i]);
+            _addItem(tokenId, itemTokenIds[i], positions[i]);
         }
     }
 
-    function _addItem(uint256 tokenId, uint256 itemTokenId) internal {
-        uint16 itemPos = nftType[itemTokenId];
+    function _addItem(
+        uint256 tokenId,
+        uint256 itemTokenId,
+        uint16 pos
+    ) internal {
+        require(pos > 0, "Position needs to be more than 0");
+        uint16 typeNft = nftType[itemTokenId];
+        uint16 typeByPos = nftTypeByPosition[pos];
+        require(typeNft == typeByPos, "incorrection position");
         // nft type 1 one is for character
-        require(itemPos > 1, "Can't put this item");
-        uint256 itemId = nftItems[tokenId][itemPos];
+        require(typeNft > 1, "Can't put this item");
+        uint256 itemId = nftItems[tokenId][pos];
         require(itemId == 0, "Already an item");
         transferFrom(msg.sender, address(this), itemTokenId);
-        nftItems[tokenId][itemPos] = itemTokenId;
+        nftItems[tokenId][pos] = itemTokenId;
     }
 
     /**

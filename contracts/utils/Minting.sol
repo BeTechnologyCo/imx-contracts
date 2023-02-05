@@ -2,7 +2,6 @@
 pragma solidity ^0.8.4;
 
 import "./Bytes.sol";
-import "./String.sol";
 
 library Minting {
     // Split the minting blob into token_id and blueprint portions
@@ -23,21 +22,5 @@ library Minting {
         }
         bytes calldata blueprint = blob[uint256(index) + 2:blob.length - 1];
         return (tokenID, blueprint);
-    }
-
-     function deserializeMintingBlob(bytes memory mintingBlob) internal pure returns (uint256, uint16, uint256[]) {
-        string[] memory idParams = String.split(string(mintingBlob), ":");
-        require(idParams.length == 2, "Invalid blob");
-        string memory tokenIdString = String.substring(idParams[0], 1, bytes(idParams[0]).length - 1);
-        string memory paramsString = String.substring(idParams[1], 1, bytes(idParams[1]).length - 1);
-
-        string[] memory paramParts = String.split(paramsString, ",");
-        require(paramParts.length == 2, "Invalid param count");
-
-        uint256 tokenId = String.toUint(tokenIdString);
-        uint16 proto = uint16(String.toUint(paramParts[0]));
-        uint256[] quality = uint256[](String.toUint(paramParts[1]));
-
-        return (tokenId, proto, quality);
     }
 }
